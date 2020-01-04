@@ -31,12 +31,15 @@
 
 #include <vector>
 #include <Corrade/Containers/ArrayViewStl.h>
+#include <Corrade/Containers/StridedArrayView.h>
 #include <Corrade/Utility/Assert.h>
+
+#include "Magnum/Magnum.h"
 
 namespace Magnum { namespace MeshTools {
 
 #ifndef DOXYGEN_GENERATING_OUTPUT
-template<class Vertex, class Interpolator> void subdivideInPlace(Containers::ArrayView<UnsignedInt> indices, Containers::ArrayView<Vertex> vertices, Interpolator interpolator);
+template<class Vertex, class Interpolator> void subdivideInPlace(const Containers::StridedArrayView1D<UnsignedInt>& indices, const Containers::StridedArrayView1D<Vertex>& vertices, Interpolator interpolator);
 #endif
 
 /**
@@ -50,14 +53,14 @@ template<class Vertex, class Interpolator> void subdivideInPlace(Containers::Arr
 
 Goes through all triangle faces and subdivides them into four new. Removing
 duplicate vertices in the mesh is up to the user.
-@see @ref subdivideInPlace()
+@see @ref subdivideInPlace(), @ref removeDuplicates()
 */
 template<class Vertex, class Interpolator> void subdivide(std::vector<UnsignedInt>& indices, std::vector<Vertex>& vertices, Interpolator interpolator) {
-    CORRADE_ASSERT(!(indices.size()%3), "MeshTools::subdivide(): index count is not divisible by 3!", );
+    CORRADE_ASSERT(!(indices.size()%3), "MeshTools::subdivide(): index count is not divisible by 3", );
 
     vertices.resize(vertices.size() + indices.size());
     indices.resize(indices.size()*4);
-    subdivideInPlace(Containers::arrayView(indices), Containers::arrayView(vertices), interpolator);
+    subdivideInPlace(Containers::arrayView(indices), Containers::stridedArrayView(vertices), interpolator);
 }
 
 /**
@@ -68,16 +71,29 @@ template<class Vertex, class Interpolator> void subdivide(std::vector<UnsignedIn
 @param[in,out] vertices Vertex array to operate on
 @param interpolator     Functor or function pointer which interpolates
     two adjacent vertices: @cpp Vertex interpolator(Vertex a, Vertex b) @ce
+@m_since_latest
 
-Assumes the original triangle mesh indices are in the first quarter of the
-@p indices array and original vertices in a prefix of the @p vertices array,
-with @cpp indices.size() @ce left at the end of it for newly added vertices.
-Then goes through all those triangle faces and subdivides them into four new,
-filling up the remaining space in both. Removing duplicate vertices in the mesh
-is up to the user.
+Assuming the original mesh has @f$ i @f$ indices and @f$ v @f$ vertices,
+expects the @p indices array to have a size of @f$ 4i @f$ (as every triangle
+face would be divided into four new), with the original indices being in the
+first quarter, and the @p vertices array to have a size of @f$ v + i @f$ (as
+every original triangle face will get three new vertices). Removing duplicate
+vertices in the mesh is up to the user.
+
+Generally, for @f$ k @f$ subsequent subdivisions, the resulting index and
+vertex array sizes @f$ v' @f$ and @f$ i' @f$ will be as following. To subdivide
+the mesh multiple times in-place, pass correctly sized prefix of the arrays to
+each step. @f[
+    \begin{array}{rcl}
+        i' & = & 4^k i \\
+        v' & = & v + \frac{1}{3}(i' - i)
+    \end{array}
+@f]
+
+@see @ref subdivide(), @ref removeDuplicates()
 */
-template<class Vertex, class Interpolator> void subdivideInPlace(Containers::ArrayView<UnsignedInt> indices, Containers::ArrayView<Vertex> vertices, Interpolator interpolator) {
-    CORRADE_ASSERT(!(indices.size()%12), "MeshTools::subdivideInto(): can't divide" << indices.size() << "indices to four parts with each having triangle faces", );
+template<class Vertex, class Interpolator> void subdivideInPlace(const Containers::StridedArrayView1D<UnsignedInt>& indices, const Containers::StridedArrayView1D<Vertex>& vertices, Interpolator interpolator) {
+    CORRADE_ASSERT(!(indices.size()%12), "MeshTools::subdivideInPlace(): can't divide" << indices.size() << "indices to four parts with each having triangle faces", );
 
     /* Subdivide each face to four new */
     const std::size_t indexCount = indices.size()/4;
