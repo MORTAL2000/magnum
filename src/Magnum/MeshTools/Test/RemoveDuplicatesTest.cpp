@@ -24,6 +24,7 @@
 */
 
 #include <Corrade/TestSuite/Tester.h>
+#include <Corrade/TestSuite/Compare/Container.h>
 
 #include "Magnum/Math/Vector2.h"
 #include "Magnum/MeshTools/RemoveDuplicates.h"
@@ -34,16 +35,42 @@ struct RemoveDuplicatesTest: TestSuite::Tester {
     explicit RemoveDuplicatesTest();
 
     void removeDuplicates();
+    void removeDuplicatesStl();
+    void removeDuplicatesIndexed();
+    void removeDuplicatesIndexedEmptyIndices();
+    void removeDuplicatesIndexedEmptyIndicesVertices();
 };
 
 RemoveDuplicatesTest::RemoveDuplicatesTest() {
-    addTests({&RemoveDuplicatesTest::removeDuplicates});
+    addTests({&RemoveDuplicatesTest::removeDuplicates,
+              &RemoveDuplicatesTest::removeDuplicatesStl,
+              &RemoveDuplicatesTest::removeDuplicatesIndexed,
+              &RemoveDuplicatesTest::removeDuplicatesIndexedEmptyIndices,
+              &RemoveDuplicatesTest::removeDuplicatesIndexedEmptyIndicesVertices});
 }
 
 void RemoveDuplicatesTest::removeDuplicates() {
     /* Numbers with distance 1 should be merged, numbers with distance 2 should
        be kept. Testing both even-odd and odd-even sequence to verify that
        half-epsilon translations are applied properly. */
+    Vector2i data[]{
+        {1, 0},
+        {2, 1},
+        {0, 4},
+        {1, 5}
+    };
+
+    std::pair<std::size_t, Containers::Array<UnsignedInt>> result = MeshTools::removeDuplicates(Containers::stridedArrayView(data), 2);
+    CORRADE_COMPARE_AS(Containers::arrayView(result.second),
+        Containers::arrayView<UnsignedInt>({0, 0, 1, 1}),
+        TestSuite::Compare::Container);
+    CORRADE_COMPARE_AS(Containers::arrayView(data).prefix(result.first),
+        Containers::arrayView<Vector2i>({{1, 0}, {0, 4}}),
+        TestSuite::Compare::Container);
+}
+
+void RemoveDuplicatesTest::removeDuplicatesStl() {
+    /* Same but with implicit bloat. HEH HEH */
     std::vector<Vector2i> data{
         {1, 0},
         {2, 1},
@@ -52,11 +79,52 @@ void RemoveDuplicatesTest::removeDuplicates() {
     };
 
     const std::vector<UnsignedInt> indices = MeshTools::removeDuplicates(data, 2);
-    CORRADE_COMPARE(indices, (std::vector<UnsignedInt>{0, 0, 1, 1}));
-    CORRADE_COMPARE(data, (std::vector<Vector2i>{
+    CORRADE_COMPARE_AS(indices,
+        (std::vector<UnsignedInt>{0, 0, 1, 1}),
+        TestSuite::Compare::Container);
+    CORRADE_COMPARE_AS(data,
+        (std::vector<Vector2i>{{1, 0}, {0, 4}}),
+        TestSuite::Compare::Container);
+}
+
+void RemoveDuplicatesTest::removeDuplicatesIndexed() {
+    /* Same as above, but with an explicit index buffer */
+    UnsignedInt indices[]{3, 2, 0, 1, 2, 3};
+    Vector2i data[]{
         {1, 0},
-        {0, 4}
-    }));
+        {2, 1},
+        {0, 4},
+        {1, 5}
+    };
+
+    std::size_t count = MeshTools::removeDuplicatesIndexed(
+        Containers::stridedArrayView(indices),
+        Containers::stridedArrayView(data), 2);
+    CORRADE_COMPARE_AS(Containers::arrayView(indices),
+        Containers::arrayView<UnsignedInt>({1, 1, 0, 0, 1, 1}),
+        TestSuite::Compare::Container);
+    CORRADE_COMPARE_AS(Containers::arrayView(data).prefix(count),
+        Containers::arrayView<Vector2i>({{1, 0}, {0, 4}}),
+        TestSuite::Compare::Container);
+}
+
+void RemoveDuplicatesTest::removeDuplicatesIndexedEmptyIndices() {
+    Vector2i data[]{
+        {1, 0},
+        {2, 1},
+        {0, 4},
+        {1, 5}
+    };
+
+    std::size_t count = MeshTools::removeDuplicatesIndexed({},
+        Containers::stridedArrayView(data), 2);
+    CORRADE_COMPARE_AS(Containers::arrayView(data).prefix(count),
+        Containers::arrayView<Vector2i>({{1, 0}, {0, 4}}),
+        TestSuite::Compare::Container);
+}
+
+void RemoveDuplicatesTest::removeDuplicatesIndexedEmptyIndicesVertices() {
+    CORRADE_COMPARE(MeshTools::removeDuplicatesIndexed<Vector2i>({}, {}, 2), 0);
 }
 
 }}}}
