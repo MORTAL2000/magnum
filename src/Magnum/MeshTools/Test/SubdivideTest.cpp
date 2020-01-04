@@ -40,6 +40,8 @@ struct SubdivideTest: TestSuite::Tester {
     void subdivideWrongIndexCount();
     void subdivideInPlace();
     void subdivideInPlaceWrongIndexCount();
+
+    /* this is additionally regression-tested in PrimitivesIcosphereTest */
 };
 
 typedef Math::Vector<1, Int> Vector1;
